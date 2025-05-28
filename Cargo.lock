@@ -702,6 +702,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
+name = "permissions"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc52a15e41afdb46f5eab7de08e76ab26738c5b1071b9be315551bdf3c5174c9"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "phf"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1355,6 +1364,7 @@ dependencies = [
  "clap",
  "clearscreen",
  "itertools",
+ "permissions",
  "tokio",
  "watchexec",
  "watchexec-events",

@@ -2,6 +2,7 @@
 use anyhow::Result;
 use clap::{arg, command};
 use itertools::Itertools;
+use permissions::is_executable;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -173,7 +174,6 @@ impl Runner {
         wx.config.on_action(move |mut action| {
             let paths_to_run = get_paths(&action.events);
             dbg!(paths_to_run);
-
             // for event in action.events.iter() {
             //     eprintln!("EVENT: {0:?}", event.tags);
             // }
@@ -266,7 +266,6 @@ impl Runner {
 // }
 
 fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
-    let extensions = ["rs", "py", "bash"];
     events
         .iter()
         .filter(|event| {
@@ -290,6 +289,9 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
         .filter_map(|event| {
             event.tags.iter().find_map(|tag| {
                 if let Tag::Path { path, .. } = tag {
+                    if !is_executable(path).unwrap() {
+                        return None;
+                    }
                     for component in path.components() {
                         if let std::path::Component::Normal(part) = component {
                             if part.display().to_string().starts_with(".") {
@@ -303,11 +305,6 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
                             return None;
                         }
                     };
-                    if let Some(ext) = path.extension() {
-                        if !extensions.contains(&ext.display().to_string().as_str()) {
-                            return None;
-                        }
-                    }
                     Some(path.to_path_buf())
                 } else {
                     None
