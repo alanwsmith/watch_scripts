@@ -128,7 +128,7 @@ impl Payload {
 
     pub fn validate_paths(&self) {
         if let None = &self.initial_dir {
-            eprintln!("ERROR: getting current direction. Can not continue");
+            eprintln!("ERROR: could not get current directory. Can not continue.");
             std::process::exit(1);
         }
 
@@ -136,6 +136,21 @@ impl Payload {
             if !then_path.exists() {
                 eprintln!("ERROR: {} does not exist", then_path.display());
                 std::process::exit(1);
+            }
+            match is_executable(then_path) {
+                Ok(check) => {
+                    if !check {
+                        eprintln!("ERROR: {} is not executable", then_path.display());
+                        std::process::exit(1);
+                    }
+                }
+                Err(_) => {
+                    eprintln!(
+                        "ERROR: Could not determine permissions for {} ",
+                        then_path.display()
+                    );
+                    std::process::exit(1);
+                }
             }
         }
     }
