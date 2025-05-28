@@ -10,5 +10,6 @@ clap = { version = "4.5.38", features = ["cargo"] }
 clearscreen = "4.0.1"
 tokio = { version = "1.45.1"}
 watchexec = "8.0.1"
+watchexec-events = "6.0.0"
 watchexec-signals = "5.0.0"
 

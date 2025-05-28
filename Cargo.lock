@@ -1347,5 +1347,6 @@ dependencies = [
  "clearscreen",
  "tokio",
  "watchexec",
+ "watchexec-events",
  "watchexec-signals",
 ]

@@ -1,6 +1,7 @@
 #![allow(unused)]
 use anyhow::Result;
 use clap::{arg, command};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -10,6 +11,8 @@ use watchexec::command::Command as WatchCommand;
 use watchexec::command::Program;
 use watchexec::command::Shell;
 use watchexec::job::Job;
+use watchexec_events::Event;
+use watchexec_events::Tag;
 use watchexec_signals::Signal;
 
 #[derive(Debug, Clone)]
@@ -161,10 +164,17 @@ impl Runner {
         }
         let wx = Watchexec::default();
         let payload = self.payload.clone();
-        let watch_path = WatchedPath::non_recursive(self.payload.watch_path());
+        let watch_path = WatchedPath::recursive(self.payload.watch_path());
         wx.config.pathset(vec![watch_path]);
         wx.config.on_action(move |mut action| {
-            clearscreen::clear().unwrap();
+            let paths_to_run = get_paths(&action.events);
+            dbg!(paths_to_run);
+
+            // for event in action.events.iter() {
+            //     eprintln!("EVENT: {0:?}", event.tags);
+            // }
+
+            // clearscreen::clear().unwrap();
             if action.signals().any(|sig| sig == Signal::Interrupt) {
                 action.quit(); // Needed for Ctrl+c
             } else {
@@ -177,6 +187,7 @@ impl Runner {
                     let (_, tmp_job) = action.create_job(then_job);
                     then_job_local = Some(tmp_job);
                 }
+
                 //let _ = payload.file_cd();
                 //let (_, job) = action.create_job(payload.file_job());
 
@@ -199,4 +210,28 @@ impl Runner {
         let _ = wx.main().await?;
         Ok(())
     }
+}
+
+fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
+    let extensions = ["rs", "py", "bash"];
+    events
+        .iter()
+        .filter_map(|event| {
+            event.tags.iter().find_map(|tag| {
+                if let Tag::Path { path, .. } = tag {
+                    if let Some(ext) = path.extension() {
+                        if extensions.contains(&ext.to_str().unwrap()) {
+                            Some(path.to_path_buf())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        })
+        .collect()
 }
