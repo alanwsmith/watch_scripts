@@ -152,8 +152,9 @@ impl Payload {
                     std::process::exit(1);
                 }
             }
+            self.raw_then_path = Some(fs::canonicalize(then_path)?);
         }
-        self.raw_then_path = Some(fs::canonicalize(self.raw_then_path.as_ref().unwrap())?);
+
         Ok(())
     }
 
@@ -193,9 +194,7 @@ impl Runner {
             if action.signals().any(|sig| sig == Signal::Interrupt) {
                 action.quit(); // Needed for Ctrl+c
             } else {
-                if let Some(details) =
-                    get_command(&action.events, payload.raw_then_path.as_ref().unwrap())
-                {
+                if let Some(details) = get_command(&action.events, payload.raw_then_path.as_ref()) {
                     clearscreen::clear().unwrap();
                     if let Err(_) = std::env::set_current_dir(payload.initial_dir.as_ref().unwrap())
                     {
@@ -287,7 +286,7 @@ impl Runner {
 // not the greatest was to do this check, but works for now
 fn get_command(
     events: &Arc<[Event]>,
-    then_path: &PathBuf,
+    then_path: Option<&PathBuf>,
 ) -> Option<(Option<PathBuf>, Arc<WatchCommand>, bool)> {
     if let Some(p) = events
         .iter()
@@ -344,7 +343,10 @@ fn get_command(
         .nth(0)
     {
         let full_path = fs::canonicalize(&p).unwrap();
-        let run_then = full_path != *then_path;
+        let run_then = match then_path {
+            Some(p) => *p != full_path,
+            None => false,
+        };
         let cd_to = match p.parent() {
             Some(p_dir) => Some(p_dir.to_path_buf()),
             None => None,
