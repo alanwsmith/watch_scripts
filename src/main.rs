@@ -181,8 +181,10 @@ impl Runner {
                     {
                         return action;
                     }
-                    if let Err(_) = std::env::set_current_dir(&details.0) {
-                        return action;
+                    if let Some(cd_to) = details.clone().0 {
+                        if let Err(_) = std::env::set_current_dir(cd_to) {
+                            return action;
+                        }
                     }
                     let job = action.get_or_create_job(Id::default(), || details.clone().1);
                     job.restart();
@@ -233,8 +235,7 @@ impl Runner {
     }
 }
 
-//fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
-fn get_command(events: &Arc<[Event]>) -> Option<(PathBuf, Arc<WatchCommand>)> {
+fn get_command(events: &Arc<[Event]>) -> Option<(Option<PathBuf>, Arc<WatchCommand>)> {
     if let Some(p) = events
         .iter()
         .filter(|event| {
@@ -289,10 +290,12 @@ fn get_command(events: &Arc<[Event]>) -> Option<(PathBuf, Arc<WatchCommand>)> {
         })
         .nth(0)
     {
-        dbg!(p);
-
+        let cd_to = match p.parent() {
+            Some(p_dir) => Some(p_dir.to_path_buf()),
+            None => None,
+        };
         Some((
-            PathBuf::from("."),
+            cd_to,
             Arc::new(WatchCommand {
                 program: Program::Shell {
                     shell: Shell::new("bash"),
