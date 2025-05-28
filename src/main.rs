@@ -4,6 +4,7 @@ use clap::{arg, command};
 use itertools::Itertools;
 use permissions::is_executable;
 use std::collections::BTreeSet;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -83,12 +84,12 @@ impl Payload {
 
     pub fn new() -> Result<Payload> {
         let (raw_then_path, _verbose, initial_dir) = Payload::get_args()?;
-        let payload = Payload {
+        let mut payload = Payload {
             initial_dir,
             raw_then_path,
             start_instant: None,
         };
-        payload.validate_paths();
+        payload.validate_paths()?;
         Ok(payload)
     }
 
@@ -126,12 +127,11 @@ impl Payload {
         }
     }
 
-    pub fn validate_paths(&self) {
+    pub fn validate_paths(&mut self) -> Result<()> {
         if let None = &self.initial_dir {
             eprintln!("ERROR: could not get current directory. Can not continue.");
             std::process::exit(1);
         }
-
         if let Some(then_path) = &self.raw_then_path {
             if !then_path.exists() {
                 eprintln!("ERROR: {} does not exist", then_path.display());
@@ -153,6 +153,8 @@ impl Payload {
                 }
             }
         }
+        self.raw_then_path = Some(fs::canonicalize(self.raw_then_path.as_ref().unwrap())?);
+        Ok(())
     }
 
     pub fn watch_path(&self) -> PathBuf {
@@ -191,7 +193,9 @@ impl Runner {
             if action.signals().any(|sig| sig == Signal::Interrupt) {
                 action.quit(); // Needed for Ctrl+c
             } else {
-                if let Some(details) = get_command(&action.events) {
+                if let Some(details) =
+                    get_command(&action.events, payload.raw_then_path.as_ref().unwrap())
+                {
                     clearscreen::clear().unwrap();
                     if let Err(_) = std::env::set_current_dir(payload.initial_dir.as_ref().unwrap())
                     {
@@ -207,28 +211,31 @@ impl Runner {
                     });
                     let (id, job) = action.create_job(details.clone().1);
                     job.start();
-                    if let Some(then_job) = payload.then_job() {
-                        let payload = payload.clone();
-                        let (_, then_run) = action.create_job(then_job);
-                        tokio::spawn(async move {
-                            job.to_wait().await;
-                            if !job.is_dead() {
-                                job.run(move |jtc| {
-                                    if let watchexec::job::CommandState::Finished {
-                                        status,
-                                        started,
-                                        finished,
-                                    } = jtc.current
-                                    {
-                                        if let watchexec_events::ProcessEnd::Success = status {
-                                            if let Ok(_) = payload.then_cd() {
-                                                then_run.start();
+                    // details.2 is the check for if then_path is the same path
+                    if details.2 {
+                        if let Some(then_job) = payload.then_job() {
+                            let payload = payload.clone();
+                            let (_, then_run) = action.create_job(then_job);
+                            tokio::spawn(async move {
+                                job.to_wait().await;
+                                if !job.is_dead() {
+                                    job.run(move |jtc| {
+                                        if let watchexec::job::CommandState::Finished {
+                                            status,
+                                            started,
+                                            finished,
+                                        } = jtc.current
+                                        {
+                                            if let watchexec_events::ProcessEnd::Success = status {
+                                                if let Ok(_) = payload.then_cd() {
+                                                    then_run.start();
+                                                }
                                             }
                                         }
-                                    }
-                                });
-                            }
-                        });
+                                    });
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -275,7 +282,13 @@ impl Runner {
     }
 }
 
-fn get_command(events: &Arc<[Event]>) -> Option<(Option<PathBuf>, Arc<WatchCommand>)> {
+// the bool is if the matched path is the same of the then
+// path in which case the script shouldn't be run twice.
+// not the greatest was to do this check, but works for now
+fn get_command(
+    events: &Arc<[Event]>,
+    then_path: &PathBuf,
+) -> Option<(Option<PathBuf>, Arc<WatchCommand>, bool)> {
     if let Some(p) = events
         .iter()
         .filter(|event| {
@@ -330,6 +343,8 @@ fn get_command(events: &Arc<[Event]>) -> Option<(Option<PathBuf>, Arc<WatchComma
         })
         .nth(0)
     {
+        let full_path = fs::canonicalize(&p).unwrap();
+        let run_then = full_path != *then_path;
         let cd_to = match p.parent() {
             Some(p_dir) => Some(p_dir.to_path_buf()),
             None => None,
@@ -345,6 +360,7 @@ fn get_command(events: &Arc<[Event]>) -> Option<(Option<PathBuf>, Arc<WatchComma
                 },
                 options: Default::default(),
             }),
+            run_then,
         ))
     } else {
         None
