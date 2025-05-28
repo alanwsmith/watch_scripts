@@ -289,8 +289,15 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
         .filter_map(|event| {
             event.tags.iter().find_map(|tag| {
                 if let Tag::Path { path, .. } = tag {
-                    if !is_executable(path).unwrap() {
-                        return None;
+                    match is_executable(path) {
+                        Ok(check) => {
+                            if !check {
+                                return None;
+                            }
+                        }
+                        _ => {
+                            return None;
+                        }
                     }
                     for component in path.components() {
                         if let std::path::Component::Normal(part) = component {
