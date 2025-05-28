@@ -2387,11 +2387,36 @@
 
       <h3>Notes</h3>
       <pre>
-- Currently hard-coded to run scripts with 
+- DONE: Works on Mac and Linux. (The way permissions
+checking it done currently prevents it from
+working on windows)
+
+- DONE: Currently hard-coded to run scripts with 
 `bash`
 
-- Currently hard-coded to watch for files
-that have `rs`, `py`, or `bash` extensions
+- DONE: Only tries to execute files that
+are executable
+ 
+- DONE: skips hidden files and files in
+hidden directories (i.e. files and directories
+that start with a `.`)
+
+- DONE: Only tries to execute the first file
+that it sees that changes. (This only 
+matters if multiple files get saved within
+~50 milliseconds of each other which is
+watchexec's debounce time)
+
+- DONE: Only executes one script at a time. 
+If a new change is detected while a script
+is still running the running script is
+killed and the newly changed one is started
+
+- TODO: Clear screen at the start of each 
+new run
+
+- DONE: Does a `cd` into the script's directory 
+and runs it from there
 
 - TODO: Pass a `-t|--then` argument with
 a path for a script to run after the watched

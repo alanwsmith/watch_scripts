@@ -186,8 +186,11 @@ impl Runner {
                             return action;
                         }
                     }
+                    action.list_jobs().for_each(|(_, job)| {
+                        job.delete_now();
+                    });
                     let job = action.get_or_create_job(Id::default(), || details.clone().1);
-                    job.restart();
+                    job.start();
                 }
 
                 // let paths_to_run = get_paths(&action.events);
@@ -294,12 +297,13 @@ fn get_command(events: &Arc<[Event]>) -> Option<(Option<PathBuf>, Arc<WatchComma
             Some(p_dir) => Some(p_dir.to_path_buf()),
             None => None,
         };
+        let file_to_run = p.file_name()?;
         Some((
             cd_to,
             Arc::new(WatchCommand {
                 program: Program::Shell {
                     shell: Shell::new("bash"),
-                    command: "ls".into(),
+                    command: format!("./{}", file_to_run.to_string_lossy().to_string()),
                     args: vec![],
                 },
                 options: Default::default(),
