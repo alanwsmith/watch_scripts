@@ -14,6 +14,9 @@ use watchexec::command::Shell;
 use watchexec::job::Job;
 use watchexec_events::Event;
 use watchexec_events::Tag;
+use watchexec_events::filekind::DataChange;
+use watchexec_events::filekind::FileEventKind;
+use watchexec_events::filekind::ModifyKind;
 use watchexec_signals::Signal;
 
 #[derive(Debug, Clone)]
@@ -217,22 +220,70 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
     let extensions = ["rs", "py", "bash"];
     events
         .iter()
-        .filter_map(|event| {
-            event.tags.iter().find_map(|tag| {
-                if let Tag::Path { path, .. } = tag {
-                    if let Some(ext) = path.extension() {
-                        if extensions.contains(&ext.to_str().unwrap()) {
-                            Some(path.to_path_buf())
-                        } else {
-                            None
+        .filter(|event| {
+            event
+                .tags
+                .iter()
+                .find_map(|tag| {
+                    if let Tag::Path { path, .. } = tag {
+                        if let Some(file_name_path) = path.file_name() {
+                            let file_name = file_name_path.display().to_string();
+                            if file_name.starts_with(".") {
+                                return Some(false);
+                            }
+                            if file_name.ends_with("~") {
+                                return Some(false);
+                            }
+                            if let Some(ext) = path.extension() {
+                                if !extensions.contains(&ext.display().to_string().as_str()) {
+                                    return Some(false);
+                                }
+                            }
                         }
+                        Some(true)
                     } else {
-                        None
+                        Some(false)
                     }
-                } else {
-                    None
+                })
+                .is_some()
+        })
+        .filter_map(|event| {
+            dbg!("--");
+            dbg!(&event);
+            event.tags.iter().filter_map(|tag| {
+                if let Tag::FileEventKind(kind) = &tag {
+                    if let FileEventKind::Modify(mod_kind) = kind {
+                        if let ModifyKind::Data(change) = mod_kind {
+                            if let DataChange::Content = change {
+                                dbg!(&change);
+                                dbg!(&event);
+                                // if let Tag::Path { path, .. } = &tag {
+                                //     dbg!(path);
+                                //     return None;
+                                // }
+                            }
+                        }
+                    }
                 }
-            })
+
+                None::<PathBuf>
+
+                // if let Tag::Path { path, .. } = tag {
+                //     println!("Path: {}", path.display());
+                //     if let Some(ext) = path.extension() {
+                //         if extensions.contains(&ext.to_str().unwrap()) {
+                //             Some(path.to_path_buf())
+                //         } else {
+                //             None
+                //         }
+                //     } else {
+                //         None
+                //     }
+                // } else {
+                //     None
+                // }
+            });
+            None::<PathBuf>
         })
         .unique()
         .collect()
