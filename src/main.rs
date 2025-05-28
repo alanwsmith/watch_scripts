@@ -205,8 +205,21 @@ impl Runner {
                     action.list_jobs().for_each(|(_, job)| {
                         job.delete_now();
                     });
-                    let job = action.get_or_create_job(Id::default(), || details.clone().1);
+                    let (id, job) = action.create_job(details.clone().1);
                     job.start();
+
+                    if let Some(then_job) = payload.then_job() {
+                        let payload = payload.clone();
+                        let (_, then_run) = action.create_job(then_job);
+                        tokio::spawn(async move {
+                            job.to_wait().await;
+                            if !job.is_dead() {
+                                if let Ok(_) = payload.then_cd() {
+                                    then_run.start();
+                                }
+                            }
+                        });
+                    }
                 }
 
                 // let paths_to_run = get_paths(&action.events);
