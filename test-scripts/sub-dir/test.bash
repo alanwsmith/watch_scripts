@@ -1,9 +1,8 @@
 #!/bin/bash
 
 echo "START: Watched Script"
-sleep 2
+sleep 4
 echo "END: Watched Script"
-
 
 
 
