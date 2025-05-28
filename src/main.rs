@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use watchexec::Id;
 use watchexec::WatchedPath;
 use watchexec::Watchexec;
 use watchexec::command::Command as WatchCommand;
@@ -172,28 +173,35 @@ impl Runner {
         let watch_path = WatchedPath::recursive(self.payload.watch_path());
         wx.config.pathset(vec![watch_path]);
         wx.config.on_action(move |mut action| {
-            let paths_to_run = get_paths(&action.events);
-            dbg!(paths_to_run);
-            // for event in action.events.iter() {
-            //     eprintln!("EVENT: {0:?}", event.tags);
-            // }
-
-            // clearscreen::clear().unwrap();
             if action.signals().any(|sig| sig == Signal::Interrupt) {
                 action.quit(); // Needed for Ctrl+c
             } else {
-                action.list_jobs().for_each(|(_, job)| {
-                    job.delete_now();
-                });
-                let mut payload = payload.clone();
-                let mut then_job_local: Option<Job> = None;
-                if let Some(then_job) = payload.then_job() {
-                    let (_, tmp_job) = action.create_job(then_job);
-                    then_job_local = Some(tmp_job);
-                }
+                let details = get_command(&action.events);
+                // dbg!(&details);
+                let job = action.get_or_create_job(Id::default(), || details.clone().1);
+                job.start();
 
-                //let _ = payload.file_cd();
+                // let paths_to_run = get_paths(&action.events);
+                // dbg!(paths_to_run);
+                // for event in action.events.iter() {
+                //     eprintln!("EVENT: {0:?}", event.tags);
+                // }
+
+                // clearscreen::clear().unwrap();
+
+                // action.list_jobs().for_each(|(_, job)| {
+                //     job.delete_now();
+                // });
+
+                // let mut payload = payload.clone();
+                // let mut then_job_local: Option<Job> = None;
+                // if let Some(then_job) = payload.then_job() {
+                //     let (_, tmp_job) = action.create_job(then_job);
+                //     then_job_local = Some(tmp_job);
+                // }
+
                 //let (_, job) = action.create_job(payload.file_job());
+                //let _ = payload.file_cd();
 
                 // payload.mark_time();
                 // job.start();
@@ -216,59 +224,72 @@ impl Runner {
     }
 }
 
-fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
-    events
-        .iter()
-        .filter(|event| {
-            event
-                .tags
-                .iter()
-                .find(|tag| {
-                    if let Tag::FileEventKind(kind) = &tag {
-                        if let FileEventKind::Modify(mod_kind) = kind {
-                            if let ModifyKind::Data(change) = mod_kind {
-                                if let DataChange::Content = change {
-                                    return true;
-                                }
-                            }
-                        }
-                    };
-                    false
-                })
-                .is_some()
-        })
-        .filter_map(|event| {
-            event.tags.iter().find_map(|tag| {
-                if let Tag::Path { path, .. } = tag {
-                    match is_executable(path) {
-                        Ok(check) => {
-                            if !check {
-                                return None;
-                            }
-                        }
-                        _ => {
-                            return None;
-                        }
-                    }
-                    for component in path.components() {
-                        if let std::path::Component::Normal(part) = component {
-                            if part.display().to_string().starts_with(".") {
-                                return None;
-                            }
-                        }
-                    }
-                    if let Some(file_name_path) = path.file_name() {
-                        let file_name = file_name_path.display().to_string();
-                        if file_name.ends_with("~") {
-                            return None;
-                        }
-                    };
-                    Some(path.to_path_buf())
-                } else {
-                    None
-                }
-            })
-        })
-        .unique()
-        .collect()
+//fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
+fn get_command(events: &Arc<[Event]>) -> (PathBuf, Arc<WatchCommand>) {
+    // events
+    //     .iter()
+    //     .filter(|event| {
+    //         event
+    //             .tags
+    //             .iter()
+    //             .find(|tag| {
+    //                 if let Tag::FileEventKind(kind) = &tag {
+    //                     if let FileEventKind::Modify(mod_kind) = kind {
+    //                         if let ModifyKind::Data(change) = mod_kind {
+    //                             if let DataChange::Content = change {
+    //                                 return true;
+    //                             }
+    //                         }
+    //                     }
+    //                 };
+    //                 false
+    //             })
+    //             .is_some()
+    //     })
+    //     .filter_map(|event| {
+    //         event.tags.iter().find_map(|tag| {
+    //             if let Tag::Path { path, .. } = tag {
+    //                 match is_executable(path) {
+    //                     Ok(check) => {
+    //                         if !check {
+    //                             return None;
+    //                         }
+    //                     }
+    //                     _ => {
+    //                         return None;
+    //                     }
+    //                 }
+    //                 for component in path.components() {
+    //                     if let std::path::Component::Normal(part) = component {
+    //                         if part.display().to_string().starts_with(".") {
+    //                             return None;
+    //                         }
+    //                     }
+    //                 }
+    //                 if let Some(file_name_path) = path.file_name() {
+    //                     let file_name = file_name_path.display().to_string();
+    //                     if file_name.ends_with("~") {
+    //                         return None;
+    //                     }
+    //                 };
+    //                 Some(path.to_path_buf())
+    //             } else {
+    //                 None
+    //             }
+    //         })
+    //     })
+    //     .unique()
+    //     .collect();
+
+    (
+        PathBuf::from("."),
+        Arc::new(WatchCommand {
+            program: Program::Shell {
+                shell: Shell::new("bash"),
+                command: "ls".into(),
+                args: vec![],
+            },
+            options: Default::default(),
+        }),
+    )
 }
