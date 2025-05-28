@@ -8,6 +8,7 @@ anyhow = "1.0.98"
 chrono = "0.4.41"
 clap = { version = "4.5.38", features = ["cargo"] }
 clearscreen = "4.0.1"
+itertools = "0.14.0"
 tokio = { version = "1.45.1"}
 watchexec = "8.0.1"
 watchexec-events = "6.0.0"

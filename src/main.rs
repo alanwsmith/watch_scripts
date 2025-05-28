@@ -1,6 +1,7 @@
 #![allow(unused)]
 use anyhow::Result;
 use clap::{arg, command};
+use itertools::Itertools;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -233,5 +234,6 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
                 }
             })
         })
+        .unique()
         .collect()
 }
