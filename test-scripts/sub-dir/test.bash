@@ -2,8 +2,8 @@
 
 echo "START: Watched Script"
 echo $PING
-sleep 4
-echo "END: Watched Script"
+sleep 2
 
+echo "END: Watched Script"
 
 
