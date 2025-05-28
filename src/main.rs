@@ -177,6 +177,7 @@ impl Runner {
                 action.quit(); // Needed for Ctrl+c
             } else {
                 if let Some(details) = get_command(&action.events) {
+                    clearscreen::clear().unwrap();
                     if let Err(_) = std::env::set_current_dir(payload.initial_dir.as_ref().unwrap())
                     {
                         return action;
@@ -200,8 +201,6 @@ impl Runner {
                 // }
                 //
                 //
-
-                // clearscreen::clear().unwrap();
 
                 // action.list_jobs().for_each(|(_, job)| {
                 //     job.delete_now();
