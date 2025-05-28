@@ -1,8 +1,11 @@
 #!/bin/bash
 
 echo "START: Watched Script"
-sleep 4
+echo $PING
+sleep 2
+
 echo "END: Watched Script"
+
 
 
 

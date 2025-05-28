@@ -2418,9 +2418,24 @@ new run
 - DONE: Does a `cd` into the script's directory 
 and runs it from there
 
-- TODO: Pass a `-t|--then` argument with
+- DONE: ENV vars are passed through to 
+the scripts
+
+- DONE: Throws an error if the `--then` 
+script doesn't exist
+
+- DONE: Throws an error if the `--then`
+script isn't executable
+
+- DONE: Pass a `-t|--then` argument with
 a path for a script to run after the watched
 script has been run
+
+- DONE: Don't run the `--then` script if
+the main script fails
+
+- DONE: Don't run the `--then` script twice
+if it's the script that changed
       </pre>
 
       <h3>Installation</h3>
