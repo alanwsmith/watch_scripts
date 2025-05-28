@@ -224,6 +224,25 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
             event
                 .tags
                 .iter()
+                .find(|tag| {
+                    if let Tag::FileEventKind(kind) = &tag {
+                        if let FileEventKind::Modify(mod_kind) = kind {
+                            if let ModifyKind::Data(change) = mod_kind {
+                                if let DataChange::Content = change {
+                                    return true;
+                                }
+                            }
+                        }
+                    };
+                    false
+                })
+                .is_some()
+        })
+        .filter(|event| {
+            dbg!(event);
+            event
+                .tags
+                .iter()
                 .find_map(|tag| {
                     if let Tag::Path { path, .. } = tag {
                         if let Some(file_name_path) = path.file_name() {
@@ -248,8 +267,8 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
                 .is_some()
         })
         .filter_map(|event| {
-            dbg!("--");
-            dbg!(&event);
+            // dbg!("--");
+            // dbg!(&event);
             event.tags.iter().filter_map(|tag| {
                 if let Tag::FileEventKind(kind) = &tag {
                     if let FileEventKind::Modify(mod_kind) = kind {
