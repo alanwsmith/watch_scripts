@@ -216,6 +216,55 @@ impl Runner {
     }
 }
 
+// fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
+//     let extensions = ["rs", "py", "bash"];
+//     events
+//         .iter()
+//         .filter(|event| {
+//             event
+//                 .tags
+//                 .iter()
+//                 .find(|tag| {
+//                     if let Tag::FileEventKind(kind) = &tag {
+//                         if let FileEventKind::Modify(mod_kind) = kind {
+//                             if let ModifyKind::Data(change) = mod_kind {
+//                                 if let DataChange::Content = change {
+//                                     return true;
+//                                 }
+//                             }
+//                         }
+//                     };
+//                     false
+//                 })
+//                 .is_some()
+//         })
+//         .filter_map(|event| {
+//             event.tags.iter().find_map(|tag| {
+//                 if let Tag::Path { path, .. } = tag {
+//                     if let Some(file_name_path) = path.file_name() {
+//                         let file_name = file_name_path.display().to_string();
+//                         if file_name.starts_with(".") {
+//                             return None;
+//                         }
+//                         if file_name.ends_with("~") {
+//                             return None;
+//                         }
+//                         if let Some(ext) = path.extension() {
+//                             if !extensions.contains(&ext.display().to_string().as_str()) {
+//                                 return None;
+//                             }
+//                         }
+//                     }
+//                     Some(path.to_path_buf())
+//                 } else {
+//                     None
+//                 }
+//             })
+//         })
+//         .unique()
+//         .collect()
+// }
+
 fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
     let extensions = ["rs", "py", "bash"];
     events
@@ -239,21 +288,24 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
                 .is_some()
         })
         .filter_map(|event| {
-            //dbg!(event);
             event.tags.iter().find_map(|tag| {
                 if let Tag::Path { path, .. } = tag {
+                    for component in path.components() {
+                        if let std::path::Component::Normal(part) = component {
+                            if part.display().to_string().starts_with(".") {
+                                return None;
+                            }
+                        }
+                    }
                     if let Some(file_name_path) = path.file_name() {
                         let file_name = file_name_path.display().to_string();
-                        if file_name.starts_with(".") {
-                            return None;
-                        }
                         if file_name.ends_with("~") {
                             return None;
                         }
-                        if let Some(ext) = path.extension() {
-                            if !extensions.contains(&ext.display().to_string().as_str()) {
-                                return None;
-                            }
+                    };
+                    if let Some(ext) = path.extension() {
+                        if !extensions.contains(&ext.display().to_string().as_str()) {
+                            return None;
                         }
                     }
                     Some(path.to_path_buf())
