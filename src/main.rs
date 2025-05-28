@@ -238,71 +238,29 @@ fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
                 })
                 .is_some()
         })
-        .filter(|event| {
-            dbg!(event);
-            event
-                .tags
-                .iter()
-                .find_map(|tag| {
-                    if let Tag::Path { path, .. } = tag {
-                        if let Some(file_name_path) = path.file_name() {
-                            let file_name = file_name_path.display().to_string();
-                            if file_name.starts_with(".") {
-                                return Some(false);
-                            }
-                            if file_name.ends_with("~") {
-                                return Some(false);
-                            }
-                            if let Some(ext) = path.extension() {
-                                if !extensions.contains(&ext.display().to_string().as_str()) {
-                                    return Some(false);
-                                }
-                            }
-                        }
-                        Some(true)
-                    } else {
-                        Some(false)
-                    }
-                })
-                .is_some()
-        })
         .filter_map(|event| {
-            // dbg!("--");
-            // dbg!(&event);
-            event.tags.iter().filter_map(|tag| {
-                if let Tag::FileEventKind(kind) = &tag {
-                    if let FileEventKind::Modify(mod_kind) = kind {
-                        if let ModifyKind::Data(change) = mod_kind {
-                            if let DataChange::Content = change {
-                                dbg!(&change);
-                                dbg!(&event);
-                                // if let Tag::Path { path, .. } = &tag {
-                                //     dbg!(path);
-                                //     return None;
-                                // }
+            //dbg!(event);
+            event.tags.iter().find_map(|tag| {
+                if let Tag::Path { path, .. } = tag {
+                    if let Some(file_name_path) = path.file_name() {
+                        let file_name = file_name_path.display().to_string();
+                        if file_name.starts_with(".") {
+                            return None;
+                        }
+                        if file_name.ends_with("~") {
+                            return None;
+                        }
+                        if let Some(ext) = path.extension() {
+                            if !extensions.contains(&ext.display().to_string().as_str()) {
+                                return None;
                             }
                         }
                     }
+                    Some(path.to_path_buf())
+                } else {
+                    None
                 }
-
-                None::<PathBuf>
-
-                // if let Tag::Path { path, .. } = tag {
-                //     println!("Path: {}", path.display());
-                //     if let Some(ext) = path.extension() {
-                //         if extensions.contains(&ext.to_str().unwrap()) {
-                //             Some(path.to_path_buf())
-                //         } else {
-                //             None
-                //         }
-                //     } else {
-                //         None
-                //     }
-                // } else {
-                //     None
-                // }
-            });
-            None::<PathBuf>
+            })
         })
         .unique()
         .collect()
