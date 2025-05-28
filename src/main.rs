@@ -176,16 +176,25 @@ impl Runner {
             if action.signals().any(|sig| sig == Signal::Interrupt) {
                 action.quit(); // Needed for Ctrl+c
             } else {
-                let details = get_command(&action.events);
-                // dbg!(&details);
-                let job = action.get_or_create_job(Id::default(), || details.clone().1);
-                job.start();
+                if let Some(details) = get_command(&action.events) {
+                    if let Err(_) = std::env::set_current_dir(payload.initial_dir.as_ref().unwrap())
+                    {
+                        return action;
+                    }
+                    if let Err(_) = std::env::set_current_dir(&details.0) {
+                        return action;
+                    }
+                    let job = action.get_or_create_job(Id::default(), || details.clone().1);
+                    job.restart();
+                }
 
                 // let paths_to_run = get_paths(&action.events);
                 // dbg!(paths_to_run);
                 // for event in action.events.iter() {
                 //     eprintln!("EVENT: {0:?}", event.tags);
                 // }
+                //
+                //
 
                 // clearscreen::clear().unwrap();
 
@@ -225,71 +234,75 @@ impl Runner {
 }
 
 //fn get_paths(events: &Arc<[Event]>) -> Vec<PathBuf> {
-fn get_command(events: &Arc<[Event]>) -> (PathBuf, Arc<WatchCommand>) {
-    // events
-    //     .iter()
-    //     .filter(|event| {
-    //         event
-    //             .tags
-    //             .iter()
-    //             .find(|tag| {
-    //                 if let Tag::FileEventKind(kind) = &tag {
-    //                     if let FileEventKind::Modify(mod_kind) = kind {
-    //                         if let ModifyKind::Data(change) = mod_kind {
-    //                             if let DataChange::Content = change {
-    //                                 return true;
-    //                             }
-    //                         }
-    //                     }
-    //                 };
-    //                 false
-    //             })
-    //             .is_some()
-    //     })
-    //     .filter_map(|event| {
-    //         event.tags.iter().find_map(|tag| {
-    //             if let Tag::Path { path, .. } = tag {
-    //                 match is_executable(path) {
-    //                     Ok(check) => {
-    //                         if !check {
-    //                             return None;
-    //                         }
-    //                     }
-    //                     _ => {
-    //                         return None;
-    //                     }
-    //                 }
-    //                 for component in path.components() {
-    //                     if let std::path::Component::Normal(part) = component {
-    //                         if part.display().to_string().starts_with(".") {
-    //                             return None;
-    //                         }
-    //                     }
-    //                 }
-    //                 if let Some(file_name_path) = path.file_name() {
-    //                     let file_name = file_name_path.display().to_string();
-    //                     if file_name.ends_with("~") {
-    //                         return None;
-    //                     }
-    //                 };
-    //                 Some(path.to_path_buf())
-    //             } else {
-    //                 None
-    //             }
-    //         })
-    //     })
-    //     .unique()
-    //     .collect();
+fn get_command(events: &Arc<[Event]>) -> Option<(PathBuf, Arc<WatchCommand>)> {
+    if let Some(p) = events
+        .iter()
+        .filter(|event| {
+            event
+                .tags
+                .iter()
+                .find(|tag| {
+                    if let Tag::FileEventKind(kind) = &tag {
+                        if let FileEventKind::Modify(mod_kind) = kind {
+                            if let ModifyKind::Data(change) = mod_kind {
+                                if let DataChange::Content = change {
+                                    return true;
+                                }
+                            }
+                        }
+                    };
+                    false
+                })
+                .is_some()
+        })
+        .filter_map(|event| {
+            event.tags.iter().find_map(|tag| {
+                if let Tag::Path { path, .. } = tag {
+                    match is_executable(path) {
+                        Ok(check) => {
+                            if !check {
+                                return None;
+                            }
+                        }
+                        _ => {
+                            return None;
+                        }
+                    }
+                    for component in path.components() {
+                        if let std::path::Component::Normal(part) = component {
+                            if part.display().to_string().starts_with(".") {
+                                return None;
+                            }
+                        }
+                    }
+                    if let Some(file_name_path) = path.file_name() {
+                        let file_name = file_name_path.display().to_string();
+                        if file_name.ends_with("~") {
+                            return None;
+                        }
+                    };
+                    Some(path.to_path_buf())
+                } else {
+                    None
+                }
+            })
+        })
+        .nth(0)
+    {
+        dbg!(p);
 
-    (
-        PathBuf::from("."),
-        Arc::new(WatchCommand {
-            program: Program::Shell {
-                shell: Shell::new("bash"),
-                command: "ls".into(),
-                args: vec![],
-            },
-            options: Default::default(),
-        }),
-    )
+        Some((
+            PathBuf::from("."),
+            Arc::new(WatchCommand {
+                program: Program::Shell {
+                    shell: Shell::new("bash"),
+                    command: "ls".into(),
+                    args: vec![],
+                },
+                options: Default::default(),
+            }),
+        ))
+    } else {
+        None
+    }
 }
